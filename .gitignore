@@ -2,3 +2,4 @@ models
 *.pyc
 .idea
 __pycache__
+*.ini
