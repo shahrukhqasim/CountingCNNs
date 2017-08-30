@@ -1,0 +1,10 @@
+[mcnn]
+image_width=200
+image_height=200
+learning_rate=0.00001
+from_scratch=False
+epochs=100
+pre_train_each_epochs=10
+model_path=models/model_mcnn.ckpt
+train_data_path=/bla/bla/bla
+test_data_path=/bla/bla/blatest
