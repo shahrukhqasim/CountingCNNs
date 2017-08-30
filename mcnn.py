@@ -5,6 +5,7 @@ from silknet import LoadInterface
 from interface import implements
 from silknet import FolderDataReader
 import cv2
+import configparser as cp
 import matplotlib.pyplot as plt
 
 slim = tf.contrib.slim
@@ -67,19 +68,24 @@ class TrainDataLoader(implements(LoadInterface)):
 
 class McnnNetwork:
     def __init__(self):
-        self.image_width = 200
-        self.image_height = 200
+
+        config = cp.ConfigParser()
+        config.read('settings.ini')
+
+        self.image_width = int(config['mcnn']['image_width'])
+        self.image_height = int(config['mcnn']['image_height'])
+        self.learning_rate = float(config['mcnn']['learning_rate'])
+        self.from_scratch = bool(config['mcnn']['from_scratch'])
+        self.EPOCHS = int(config['mcnn']['epochs'])
+        self.PRETRAIN_EACH_EPOCHS = int(config['mcnn']['pre_train_each_epochs'])
+        self.full_model_path = str(config['mcnn']['model_path'])
+        self.data_path = str(config['mcnn']['train_data_path'])
+        self.test_data_path = str(config['mcnn']['test_data_path'])
+
         self.density_map_width = int(self.image_width / 4)
         self.density_map_height = int(self.image_height / 4)
-        self.learning_rate = 0.00001
         self.saver_vgg = None
         self.saver_all = None
-        self.full_model_path = 'models/model_mcnn.ckpt'
-        self.from_scratch = True
-        self.data_path = '/home/srq/Datasets/ShanghaiTech/part_A_2/Training'
-        self.test_data_path = '/home/srq/Datasets/ShanghaiTech/part_A_2/Testing'
-        self.EPOCHS = 80
-        self.PRETRAIN_EACH_EPOCHS = 10
 
     def get_r1(self, x):
         with slim.arg_scope(vgg.vgg_arg_scope()):
@@ -267,7 +273,7 @@ class McnnNetwork:
                     sum_gt = np.sum(density_map)
                     sum_gt_9_patches += sum_gt
                     # SGD backprop through all of these0
-                    sum_predicted = sess.run([self.sum_regressor], feed_dict={self.r1_out_multiplier: 1, self.r2_out_multiplier: 1, self.r3_out_multiplier: 1, self.regressor_input: [image]})
+                    sum_predicted = sess.run([self.sum_regressor], feed_dict={self.regressor_input: [image]})
                     sum_predicted_total += sum_predicted[0]
 
                 total_absolute_error += abs(sum_predicted_total - sum_gt_9_patches)
@@ -276,12 +282,12 @@ class McnnNetwork:
                 gt_values.append(sum_gt_9_patches)
                 output_values.append(sum_predicted_total)
 
-                font = cv2.FONT_HERSHEY_SIMPLEX
-                cv2.putText(complete_image, str(sum_gt_9_patches), (0, 30), font, 1, (0, 255, 0), 2, cv2.LINE_AA)
-                cv2.putText(complete_image, str(sum_predicted_total), (0, 60), font, 1, (255, 0, 0), 2, cv2.LINE_AA)
-                cv2.namedWindow("Draw")
-                cv2.imshow("Draw", complete_image)
-                cv2.waitKey(0)
+                # font = cv2.FONT_HERSHEY_SIMPLEX
+                # cv2.putText(complete_image, str(sum_gt_9_patches), (0, 30), font, 1, (0, 255, 0), 2, cv2.LINE_AA)
+                # cv2.putText(complete_image, str(sum_predicted_total), (0, 60), font, 1, (255, 0, 0), 2, cv2.LINE_AA)
+                # cv2.namedWindow("Draw")
+                # cv2.imshow("Draw", complete_image)
+                # cv2.waitKey(0)
 
                 iteration += 1
                 total_examples += 1
