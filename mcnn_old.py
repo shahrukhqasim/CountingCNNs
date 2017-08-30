@@ -112,23 +112,20 @@ class McnnNetwork:
         return net
 
     def construct_graphs(self):
+        self.r1_out_multiplier = tf.placeholder(tf.float32, ())
+        self.r2_out_multiplier = tf.placeholder(tf.float32, ())
+        self.r3_out_multiplier = tf.placeholder(tf.float32, ())
         regressor_input = self.regressor_input = tf.placeholder("float32", shape=[1, self.image_height, self.image_width, 3])
         regressor_output_ground_truth = self.regressor_output_ground_truth = tf.placeholder("float32",
                                                        shape=[1, self.density_map_height, self.density_map_width])
 
         with slim.arg_scope(vgg.vgg_arg_scope()):
             r1_output = self.get_r1(regressor_input)
-            self.r1_output_density = None
-            with slim.arg_scope(vgg.vgg_arg_scope()):
-                self.r1_output_density = slim.conv2d(r1_output, 1, [1, 1], scope='r1_output_density')
+            r1_output = tf.scalar_mul(self.r1_out_multiplier, r1_output)
             r2_output = self.get_r2(regressor_input)
-            self.r2_output_density = None
-            with slim.arg_scope(vgg.vgg_arg_scope()):
-                self.r2_output_density = slim.conv2d(r1_output, 1, [1, 1], scope='r2_output_density')
+            r2_output = tf.scalar_mul(self.r1_out_multiplier, r2_output)
             r3_output = self.get_r3(regressor_input)
-            self.r3_output_density = None
-            with slim.arg_scope(vgg.vgg_arg_scope()):
-                self.r3_output_density = slim.conv2d(r1_output, 1, [1, 1], scope='r3_output_density')
+            r3_output = tf.scalar_mul(self.r1_out_multiplier, r3_output)
 
             net = tf.concat([r1_output, r2_output, r3_output], axis=3)
             with slim.arg_scope(vgg.vgg_arg_scope()):
@@ -137,30 +134,7 @@ class McnnNetwork:
             self.cost_regressor = tf.reduce_sum(tf.pow(
                 tf.subtract(tf.squeeze(net), tf.scalar_mul(1000, tf.squeeze(regressor_output_ground_truth))), 2))
             self.sum_regressor = tf.scalar_mul(0.001, tf.reduce_sum(net))
-            self.optimizer_regressor = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(
-                self.cost_regressor)
-
-            self.cost_regressor_1 = tf.reduce_sum(tf.pow(
-                tf.subtract(tf.squeeze(self.r1_output_density),
-                            tf.scalar_mul(1000, tf.squeeze(regressor_output_ground_truth))), 2))
-            self.sum_regressor_1 = tf.scalar_mul(0.001, tf.reduce_sum(self.r1_output_density))
-            self.optimizer_regressor_1 = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(
-                self.cost_regressor_1)
-
-            self.cost_regressor_2 = tf.reduce_sum(tf.pow(
-                tf.subtract(tf.squeeze(self.r2_output_density),
-                            tf.scalar_mul(1000, tf.squeeze(regressor_output_ground_truth))), 2))
-            self.sum_regressor_2 = tf.scalar_mul(0.001, tf.reduce_sum(self.r2_output_density))
-            self.optimizer_regressor_2 = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(
-                self.cost_regressor_2)
-
-            self.cost_regressor_3 = tf.reduce_sum(tf.pow(
-                tf.subtract(tf.squeeze(self.r3_output_density),
-                            tf.scalar_mul(1000, tf.squeeze(regressor_output_ground_truth))), 2))
-            self.sum_regressor_3 = tf.scalar_mul(0.001, tf.reduce_sum(self.r3_output_density))
-            self.optimizer_regressor_3 = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(
-                self.cost_regressor_3)
-
+            self.optimizer_regressor = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.cost_regressor)
 
             self.saver_all = tf.train.Saver()
 
@@ -170,7 +144,10 @@ class McnnNetwork:
         dataset = FolderDataReader(self.data_path, TrainDataLoader(self.image_height, self.image_width))
         dataset.init()
 
-        training_phase = 0
+        r1_multiplers = [1, 0, 0, 1]
+        r2_multiplers = [0, 1, 0, 1]
+        r3_multiplers = [0, 0, 1, 1]
+        multipler_index = 0
 
         with tf.Session() as sess:
             sess.run(init)
@@ -181,29 +158,8 @@ class McnnNetwork:
             print("========== Starting Training =========")
             while True:
                 epoch_num = dataset.get_next_epoch()
-                if epoch_num == training_phase * self.PRETRAIN_EACH_EPOCHS + self.PRETRAIN_EACH_EPOCHS and training_phase < 3:
-                    training_phase += 1
-                if training_phase == 0:
-                    cost_regressor = self.cost_regressor_1
-                    sum_regressor = self.sum_regressor_1
-                    optimizer_regressor = self.optimizer_regressor_1
-                    print("Using regressor 1")
-                elif training_phase == 1:
-                    cost_regressor = self.cost_regressor_2
-                    sum_regressor = self.sum_regressor_2
-                    optimizer_regressor = self.optimizer_regressor_2
-                    print("Using regressor 2")
-                elif training_phase == 2:
-                    cost_regressor = self.cost_regressor_3
-                    sum_regressor = self.sum_regressor_3
-                    optimizer_regressor = self.optimizer_regressor_3
-                    print("Using regressor 3")
-                elif training_phase == 3:
-                    cost_regressor = self.cost_regressor
-                    sum_regressor = self.sum_regressor
-                    optimizer_regressor = self.optimizer_regressor
-                    print("Using all regressors")
-
+                if epoch_num == multipler_index * self.PRETRAIN_EACH_EPOCHS + self.PRETRAIN_EACH_EPOCHS and multipler_index < 3:
+                    multipler_index += 1
                 if epoch_num == self.EPOCHS:
                     break
 
@@ -217,10 +173,8 @@ class McnnNetwork:
                     image = images[i]
                     density_map = density_maps[i]
                     sum_gt = np.sum(density_map)
-                    c1, s1, o1 = sess.run([cost_regressor, sum_regressor, optimizer_regressor],
-                                          feed_dict={self.regressor_input: [image],
-                                                     self.regressor_output_ground_truth: [density_map]})
-                    print("\tEpoch", epoch, "Iteration", iteration, "Patch", i + 1)
+                    c1, s1, o1 = sess.run([self.cost_regressor, self.sum_regressor, self.optimizer_regressor], feed_dict={self.r1_out_multiplier: r1_multiplers[multipler_index], self.r2_out_multiplier: r2_multiplers[multipler_index], self.r3_out_multiplier: r3_multiplers[multipler_index], self.regressor_input: [image], self.regressor_output_ground_truth: [density_map]})
+                    print("\tEpoch", epoch, "Iteration", iteration, "Patch", i+1)
                     print("\tCost R1", c1, "Original sum:", sum_gt, "Predicted sum", s1)
 
                 iteration += 1
