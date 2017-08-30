@@ -86,6 +86,10 @@ class McnnNetwork:
         self.density_map_height = int(self.image_height / 4)
         self.saver_vgg = None
         self.saver_all = None
+        if self.from_scratch:
+            self.training_phase = 0
+        else:
+            self.training_phase = 3
 
     def get_r1(self, x):
         with slim.arg_scope(vgg.vgg_arg_scope()):
@@ -176,7 +180,7 @@ class McnnNetwork:
         dataset = FolderDataReader(self.data_path, TrainDataLoader(self.image_height, self.image_width))
         dataset.init()
 
-        training_phase = 0
+        training_phase = self.training_phase
 
         with tf.Session() as sess:
             sess.run(init)
