@@ -75,7 +75,7 @@ class McnnNetwork:
         self.image_width = int(config['mcnn']['image_width'])
         self.image_height = int(config['mcnn']['image_height'])
         self.learning_rate = float(config['mcnn']['learning_rate'])
-        self.from_scratch = bool(config['mcnn']['from_scratch'])
+        self.from_scratch = int(config['mcnn']['from_scratch']) == 1
         self.EPOCHS = int(config['mcnn']['epochs'])
         self.PRETRAIN_EACH_EPOCHS = int(config['mcnn']['pre_train_each_epochs'])
         self.full_model_path = str(config['mcnn']['model_path'])
