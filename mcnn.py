@@ -65,6 +65,13 @@ class TrainDataLoader(implements(LoadInterface)):
 
         return datum
 
+class OutputImagesWriter(implements(WriteInterface)):
+    def write_datum(self, full_path, object):
+        image_with_text_drawn = object['image_with_text_drawn']
+        density_map_1 = object['density_map_predicted']
+        cv2.imwrite(os.path.join(full_path,'image_with_text_drawn.jpg'), image_with_text_drawn)
+        cv2.imwrite(os.path.join(full_path,'density_map_predicted.jpg'), density_map_1)#image_density_1
+
 
 class McnnNetwork:
     def __init__(self):
@@ -143,6 +150,8 @@ class McnnNetwork:
             net = tf.concat([r1_output, r2_output, r3_output], axis=3)
             with slim.arg_scope(vgg.vgg_arg_scope()):
                 net = slim.conv2d(net,  1, [1, 1], scope='r123_combine')
+
+            self.net = tf.squeeze(net)
 
             self.cost_regressor = tf.reduce_sum(tf.pow(
                 tf.subtract(tf.squeeze(net), tf.scalar_mul(1000, tf.squeeze(regressor_output_ground_truth))), 2))
@@ -252,6 +261,7 @@ class McnnNetwork:
 
         gt_values = []
         output_values = []
+        output_info_writer = FolderDataWriter(self.test_data_path, OutputImagesWriter())
 
         with tf.Session() as sess:
             sess.run(init)
@@ -270,15 +280,29 @@ class McnnNetwork:
 
                 sum_gt_9_patches = 0
                 sum_predicted_total = 0
+                image_density_1 = []
+
+                image_density_output = np.zeros((self.density_map_height * 3, self.density_map_width * 3))
+
+                coordinates_y = []
+                coordinates_x = []
+                for i in range(3):
+                    for j in range(3):
+                        coordinates_y.append(i)
+                        coordinates_x.append(j)
 
                 for i in range(9):
                     image = images[i]
                     density_map = density_maps[i]
                     sum_gt = np.sum(density_map)
                     sum_gt_9_patches += sum_gt
-                    # SGD backprop through all of these0
-                    sum_predicted = sess.run([self.sum_regressor], feed_dict={self.regressor_input: [image]})
-                    sum_predicted_total += sum_predicted[0]
+                    sum_predicted, output_density_map = sess.run([self.sum_regressor, self.net], feed_dict={self.regressor_input: [image]})
+                    print(coordinates_x[i], coordinates_y[i])
+                    image_density_output[
+                    coordinates_y[i] * self.density_map_height:(coordinates_y[i] + 1) * self.density_map_height,
+                    coordinates_x[i] * self.density_map_width:(coordinates_x[
+                                                                     i] + 1) * self.density_map_width] = output_density_map
+                    sum_predicted_total += sum_predicted
 
                 total_absolute_error += abs(sum_predicted_total - sum_gt_9_patches)
                 total_square_error += pow(abs(sum_predicted_total - sum_gt_9_patches), 2)
@@ -286,12 +310,22 @@ class McnnNetwork:
                 gt_values.append(sum_gt_9_patches)
                 output_values.append(sum_predicted_total)
 
-                # font = cv2.FONT_HERSHEY_SIMPLEX
-                # cv2.putText(complete_image, str(sum_gt_9_patches), (0, 30), font, 1, (0, 255, 0), 2, cv2.LINE_AA)
-                # cv2.putText(complete_image, str(sum_predicted_total), (0, 60), font, 1, (255, 0, 0), 2, cv2.LINE_AA)
+                font = cv2.FONT_HERSHEY_SIMPLEX
+                cv2.putText(complete_image, str(sum_gt_9_patches), (0, 30), font, 1, (0, 255, 0), 2, cv2.LINE_AA)
+                cv2.putText(complete_image, str(sum_predicted_total), (0, 60), font, 1, (255, 0, 0), 2, cv2.LINE_AA)
+                datum['image_with_text_drawn'] = complete_image
+
+                cv2.normalize(image_density_output, image_density_output, 0, 255, cv2.NORM_MINMAX)
+                image_density_output = image_density_output.astype(np.uint8)
+                image_density_output_display = cv2.applyColorMap(image_density_output, cv2.COLORMAP_JET)
+
                 # cv2.namedWindow("Draw")
-                # cv2.imshow("Draw", complete_image)
+                # cv2.imshow("Draw", image_density_1)
+                datum['density_map_predicted'] = image_density_output_display
+                output_info_writer.write_datum(id, datum)
+
                 # cv2.waitKey(0)
+
 
                 iteration += 1
                 total_examples += 1
