@@ -283,7 +283,9 @@ class McnnNetworkDynamic:
                 sum_predicted_total = 0
                 image_density_1 = []
 
-                image_density_output = np.zeros((self.density_map_height * 3, self.density_map_width * 3))
+                this_density_map_height, this_density_map_width = np.shape(density_maps[0])
+
+                image_density_output = np.zeros((this_density_map_height * 3, this_density_map_width * 3))
 
                 coordinates_y = []
                 coordinates_x = []
@@ -300,9 +302,9 @@ class McnnNetworkDynamic:
                     sum_predicted, output_density_map = sess.run([self.sum_regressor, self.net], feed_dict={self.regressor_input: [image]})
                     print(coordinates_x[i], coordinates_y[i])
                     image_density_output[
-                    coordinates_y[i] * self.density_map_height:(coordinates_y[i] + 1) * self.density_map_height,
-                    coordinates_x[i] * self.density_map_width:(coordinates_x[
-                                                                     i] + 1) * self.density_map_width] = output_density_map
+                    coordinates_y[i] * this_density_map_height:(coordinates_y[i] + 1) * this_density_map_height,
+                    coordinates_x[i] * this_density_map_width:(coordinates_x[
+                                                                     i] + 1) * this_density_map_width] = output_density_map
                     sum_predicted_total += sum_predicted
 
                 total_absolute_error += abs(sum_predicted_total - sum_gt_9_patches)
