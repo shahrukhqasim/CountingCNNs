@@ -71,15 +71,24 @@ class TrainDataLoader(implements(LoadInterface)):
 
 class SimpleCnnNetworkWithFlow:
     def __init__(self):
-        self.image_width = 200
-        self.image_height = 200
+        config = cp.ConfigParser()
+        config.read('settings.ini')
+
+        self.image_width = int(config['network_6']['image_width'])
+        self.image_height = int(config['network_6']['image_height'])
+        self.learning_rate = float(config['network_6']['learning_rate'])
+        self.from_scratch = int(config['network_6']['from_scratch']) == 1
+        self.EPOCHS = int(config['network_6']['epochs'])
+        self.full_model_path = str(config['network_6']['model_path'])
+        self.data_path = str(config['network_6']['train_data_path'])
+        self.test_data_path = str(config['network_6']['test_data_path'])
+
         self.density_map_width = int(self.image_width / 4)
         self.density_map_height = int(self.image_height / 4)
-        self.learning_rate = 0.00001
         self.saver_vgg = None
         self.saver_all = None
-        self.use_second_frame_instead_of_flow = True
-        self.keep_secondary_image_separate = True
+        self.use_second_frame_instead_of_flow = int(config['network_6']['use_two_frames']) == 1
+        self.keep_secondary_image_separate = int(config['network_6']['keep_initial_layers_separate']) == 1
 
         if self.use_second_frame_instead_of_flow:
             self.full_model_path = 'models/model_full_with_two_frames.ckpt'

@@ -9,3 +9,15 @@ model_path=models/model_mcnn.ckpt
 train_data_path=/home/srq/Datasets/ShanghaiTech/part_A_2/Training
 test_data_path=/home/srq/Datasets/ShanghaiTech/part_A_2/Testing
 
+
+[network_6]
+image_width=200
+image_height=200
+learning_rate=0.00001
+from_scratch=1
+epochs=80
+model_path=models/model_network_6.ckpt
+train_data_path=/home/srq/Datasets/CUHK Crowd/Dataset_Ready/Train
+test_data_path=/home/srq/Datasets/CUHK Crowd/Dataset_Ready/Test
+keep_initial_layers_separate=1
+use_two_frames=1
