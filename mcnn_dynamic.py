@@ -71,6 +71,8 @@ class OutputImagesWriter(implements(WriteInterface)):
         density_map_1 = object['density_map_predicted']
         cv2.imwrite(os.path.join(full_path,'image_with_text_drawn.jpg'), image_with_text_drawn)
         cv2.imwrite(os.path.join(full_path,'density_map_predicted.jpg'), density_map_1)#image_density_1
+        with open(os.path.join(full_path,'numbers.txt'), 'w') as f:
+            f.write('%f %f' % (object['sum_gt'],object['sum_predicted']))
 
 
 class McnnNetworkDynamic:
@@ -317,6 +319,8 @@ class McnnNetworkDynamic:
                 cv2.putText(complete_image, str(sum_gt_9_patches), (0, 30), font, 1, (0, 255, 0), 2, cv2.LINE_AA)
                 cv2.putText(complete_image, str(sum_predicted_total), (0, 60), font, 1, (255, 0, 0), 2, cv2.LINE_AA)
                 datum['image_with_text_drawn'] = complete_image
+                datum['sum_predicted'] = sum_predicted_total
+                datum['sum_gt'] = sum_gt_9_patches
 
                 cv2.normalize(image_density_output, image_density_output, 0, 255, cv2.NORM_MINMAX)
                 image_density_output = image_density_output.astype(np.uint8)
